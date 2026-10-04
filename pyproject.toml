@@ -1,0 +1,59 @@
+[build-system]
+requires = ["hatchling==1.27.0"]
+build-backend = "hatchling.build"
+
+[project]
+name = "realtime-cv-serving"
+version = "0.1.0"
+description = "Observable, bounded-latency ONNX object-detection serving."
+readme = "README.md"
+requires-python = ">=3.11,<3.14"
+license = { file = "LICENSE" }
+authors = [{ name = "Dany" }]
+dependencies = [
+  "fastapi==0.116.1",
+  "numpy==2.3.3",
+  "onnx==1.18.0",
+  "onnxruntime==1.22.1",
+  "opencv-python-headless==4.11.0.86",
+  "prometheus-client==0.22.1",
+  "pydantic-settings==2.10.1",
+  "uvicorn[standard]==0.35.0",
+]
+
+[project.optional-dependencies]
+export = ["torch==2.8.0", "onnxsim==0.4.36"]
+quantize = ["pycocotools==2.0.10"]
+dev = [
+  "mypy==1.18.2",
+  "pip-audit==2.9.0",
+  "pre-commit==4.3.0",
+  "pytest==8.4.2",
+  "pytest-cov==6.3.0",
+  "ruff==0.12.11",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/rcs"]
+
+[tool.pytest.ini_options]
+addopts = "--strict-markers --cov=rcs --cov-report=term-missing"
+testpaths = ["tests"]
+markers = ["slow: tests requiring substantial local resources", "gpu: tests requiring a CUDA-capable GPU"]
+
+[tool.coverage.run]
+branch = true
+source = ["rcs"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "SIM"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+warn_unreachable = true
+packages = ["rcs"]
