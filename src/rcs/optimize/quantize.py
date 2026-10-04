@@ -1,7 +1,9 @@
 """Static INT8 quantization with an explicit calibration-data requirement."""
 
 from __future__ import annotations
+
 from pathlib import Path
+
 import onnxruntime.quantization as ortq
 
 

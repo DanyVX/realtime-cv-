@@ -14,7 +14,7 @@ def iou(box: np.ndarray, boxes: np.ndarray) -> np.ndarray:
         + np.prod(np.maximum(0, boxes[:, 2:] - boxes[:, :2]), axis=1)
         - inter
     )
-    return np.divide(inter, union, out=np.zeros_like(inter), where=union > 0)
+    return np.asarray(np.divide(inter, union, out=np.zeros_like(inter), where=union > 0))
 
 
 def nms(boxes: np.ndarray, scores: np.ndarray, threshold: float, max_det: int) -> np.ndarray:
@@ -27,4 +27,4 @@ def nms(boxes: np.ndarray, scores: np.ndarray, threshold: float, max_det: int) -
         keep.append(int(current))
         remaining = indices[1:]
         indices = remaining[iou(boxes[current], boxes[remaining]) <= threshold]
-    return np.asarray(keep, dtype=np.int64)  # type: ignore[no-any-return]
+    return np.asarray(keep, dtype=np.int64)
