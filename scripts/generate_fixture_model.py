@@ -19,17 +19,19 @@ def main() -> None:
     images = helper.make_tensor_value_info("images", TensorProto.FLOAT, ["batch", 3, 64, 64])
     predictions = helper.make_tensor_value_info("predictions", TensorProto.FLOAT, ["batch", 1, 6])
     value = numpy_helper.from_array(np.array([[[8, 8, 48, 48, 0.9, 0]]], np.float32), "template")
-    shape = numpy_helper.from_array(np.array([0, 1, 1], np.int64), "shape")
+    batch_index = numpy_helper.from_array(np.array([0], np.int64), "batch_index")
+    tail_shape = numpy_helper.from_array(np.array([1, 6], np.int64), "tail_shape")
     graph = helper.make_graph(
         [
             helper.make_node("Shape", ["images"], ["input_shape"]),
-            helper.make_node("Gather", ["input_shape", "shape"], ["batch_shape"], axis=0),
+            helper.make_node("Gather", ["input_shape", "batch_index"], ["batch"], axis=0),
+            helper.make_node("Concat", ["batch", "tail_shape"], ["batch_shape"], axis=0),
             helper.make_node("Expand", ["template", "batch_shape"], ["predictions"]),
         ],
         "fixture",
         [images],
         [predictions],
-        [value, shape],
+        [value, batch_index, tail_shape],
     )
     model = helper.make_model(graph, opset_imports=[helper.make_opsetid("", 17)])
     model.ir_version = 10
