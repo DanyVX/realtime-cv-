@@ -21,3 +21,7 @@ One batching worker owns admission from a bounded queue. It gathers until `max_b
 deadline, runs ORT in an executor, then resolves each request's future. Preprocessing and model
 execution stay off the event loop. Detailed queue semantics and the open-loop benchmark protocol
 will be added with M4 and M6, before any numbers are published.
+
+## Benchmark protocol
+
+`bench/open_loop.py` schedules arrivals independently of response completion and measures from the intended send time, avoiding coordinated omission. It must be run only after a model is configured; result JSON and plots remain TBD rather than estimated.
