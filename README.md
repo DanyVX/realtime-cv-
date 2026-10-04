@@ -33,6 +33,9 @@ uv run pytest
 Model downloads are deliberately not automatic. See [MODEL_CARD.md](MODEL_CARD.md) before
 supplying any weights.
 
+For a dependency-free serving smoke path, run `make bench`. It creates a **synthetic fixture
+model**, not a trained detector; it is solely for API, batching, and CI verification.
+
 ## Design and limitations
 
 See [docs/DESIGN.md](docs/DESIGN.md), [docs/LIMITATIONS.md](docs/LIMITATIONS.md), and

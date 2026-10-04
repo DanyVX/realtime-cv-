@@ -19,6 +19,7 @@ test-fast:
 	uv run pytest -m "not slow and not gpu"
 
 bench:
+	uv run python scripts/generate_fixture_model.py
 	uv run python -m rcs.bench.environment
 
 run:

@@ -12,6 +12,7 @@ dist/
 build/
 *.egg-info/
 models/
+!models/.gitkeep
 data/
 artifacts/
 results/*.json
