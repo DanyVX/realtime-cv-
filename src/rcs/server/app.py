@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 from contextlib import asynccontextmanager
+from collections.abc import AsyncIterator
 
 import numpy as np
 from fastapi import FastAPI, File, HTTPException, Request, UploadFile
@@ -20,7 +21,8 @@ latency = Histogram("rcs_request_seconds", "End-to-end latency")
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    """Load and warm the configured model before accepting detection requests."""
     app.state.ready = False
     if settings.model_path:
         model = OnnxModel(settings.model_path)
@@ -28,15 +30,20 @@ async def lifespan(app: FastAPI):
         async def infer(batch: list[np.ndarray]) -> list[np.ndarray]:
             return await asyncio.to_thread(model.infer, batch)
 
-        app.state.batcher = DynamicBatcher(infer, capacity=settings.queue_capacity)
-        await app.state.batcher.start()
+        batcher: DynamicBatcher[np.ndarray, np.ndarray] = DynamicBatcher(
+            infer, capacity=settings.queue_capacity
+        )
+        await batcher.start()
+        app.state.batcher = batcher
         app.state.ready = True
     yield
-    if getattr(app.state, "batcher", None):
-        await app.state.batcher.close()
+    shutdown_batcher = getattr(app.state, "batcher", None)
+    if shutdown_batcher is not None:
+        await shutdown_batcher.close()
 
 
 app = FastAPI(title="Realtime CV Serving", lifespan=lifespan)
+app.state.ready = False
 
 
 @app.get("/healthz")
@@ -53,8 +60,12 @@ async def readyz(request: Request) -> dict[str, str]:
 
 @app.post("/v1/detect")
 async def detect(
-    request: Request, image: UploadFile = File(...), conf: float = 0.25, max_det: int = 100
+    request: Request,
+    image: UploadFile = File(...),
+    conf: float = 0.25,
+    max_det: int = 100,
 ) -> dict[str, object]:
+    """Run one image through the configured model and remap boxes to source pixels."""
     if not 0 <= conf <= 1 or not 1 <= max_det <= 300:
         raise HTTPException(422, "invalid detection options")
     if not request.app.state.ready:
@@ -72,20 +83,22 @@ async def detect(
             predictions = await request.app.state.batcher.submit(tensor)
         except OverflowError as error:
             raise HTTPException(429, "queue saturated", headers={"Retry-After": "1"}) from error
-        detections = [
-            {
-                "box": [
-                    round(float((x1 - pad_x) / scale), 2),
-                    round(float((y1 - pad_y) / scale), 2),
-                    round(float((x2 - pad_x) / scale), 2),
-                    round(float((y2 - pad_y) / scale), 2),
-                ],
-                "score": round(float(score), 6),
-                "class_id": int(class_id),
-            }
-            for x1, y1, x2, y2, score, class_id in predictions[:max_det]
-            if float(score) >= conf
-        ]
+        detections: list[dict[str, object]] = []
+        for x1, y1, x2, y2, score, class_id in predictions[:max_det]:
+            if float(score) < conf:
+                continue
+            detections.append(
+                {
+                    "box": [
+                        round(float((x1 - pad_x) / scale), 2),
+                        round(float((y1 - pad_y) / scale), 2),
+                        round(float((x2 - pad_x) / scale), 2),
+                        round(float((y2 - pad_y) / scale), 2),
+                    ],
+                    "score": round(float(score), 6),
+                    "class_id": int(class_id),
+                }
+            )
         requests.labels("200").inc()
         return {"detections": detections, "model": str(settings.model_path)}
 
